@@ -1,0 +1,414 @@
+import tkinter as tk
+from tkinter import messagebox
+import urllib.request
+import urllib.parse
+import json
+from datetime import datetime
+
+
+# =========================
+# HAVA MƏLUMATINI AL
+# =========================
+
+def get_weather(city):
+    try:
+        # Şəhərin koordinatlarını tap
+        params = urllib.parse.urlencode({
+            "name": city,
+            "count": 1,
+            "language": "az",
+            "format": "json"
+        })
+
+        geo_url = (
+            "https://geocoding-api.open-meteo.com/v1/search?"
+            + params
+        )
+
+        with urllib.request.urlopen(geo_url, timeout=10) as response:
+            geo_data = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        if "results" not in geo_data:
+            messagebox.showerror(
+                "Xəta",
+                "Bu şəhər tapılmadı."
+            )
+            return
+
+        location = geo_data["results"][0]
+
+        latitude = location["latitude"]
+        longitude = location["longitude"]
+
+        # Hava məlumatlarını al
+        weather_params = urllib.parse.urlencode({
+            "latitude": latitude,
+            "longitude": longitude,
+            "current": (
+                "temperature_2m,"
+                "relative_humidity_2m,"
+                "apparent_temperature,"
+                "weather_code,"
+                "wind_speed_10m"
+            ),
+            "timezone": "auto"
+        })
+
+        weather_url = (
+            "https://api.open-meteo.com/v1/forecast?"
+            + weather_params
+        )
+
+        with urllib.request.urlopen(
+            weather_url,
+            timeout=10
+        ) as response:
+
+            weather_data = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        current = weather_data["current"]
+
+        temperature = current["temperature_2m"]
+        feels_like = current["apparent_temperature"]
+        humidity = current["relative_humidity_2m"]
+        wind = current["wind_speed_10m"]
+        weather_code = current["weather_code"]
+
+        # Hava vəziyyətləri
+        conditions = {
+            0: ("☀️", "Açıq hava"),
+            1: ("🌤️", "Əsasən açıq"),
+            2: ("⛅", "Qismən buludlu"),
+            3: ("☁️", "Buludlu"),
+            45: ("🌫️", "Dumanlı"),
+            48: ("🌫️", "Dumanlı"),
+            51: ("🌦️", "Yüngül çiskin"),
+            53: ("🌦️", "Çiskin"),
+            55: ("🌧️", "Güclü çiskin"),
+            61: ("🌧️", "Yüngül yağış"),
+            63: ("🌧️", "Yağış"),
+            65: ("🌧️", "Güclü yağış"),
+            71: ("🌨️", "Yüngül qar"),
+            73: ("❄️", "Qar"),
+            75: ("❄️", "Güclü qar"),
+            80: ("🌧️", "Yağış"),
+            81: ("🌧️", "Yağış"),
+            82: ("🌧️", "Güclü yağış"),
+            95: ("⛈️", "Tufan"),
+            96: ("⛈️", "Tufan və dolu"),
+            99: ("⛈️", "Güclü tufan")
+        }
+
+        icon, condition = conditions.get(
+            weather_code,
+            ("🌡️", "Naməlum")
+        )
+
+        # Ekranda göstər
+        city_label.config(
+            text=f"{location['name']}, {location.get('country', '')}"
+        )
+
+        icon_label.config(text=icon)
+
+        temperature_label.config(
+            text=f"{round(temperature)}°C"
+        )
+
+        condition_label.config(
+            text=condition
+        )
+
+        feels_label.config(
+            text=f"Hiss olunan: {round(feels_like)}°C"
+        )
+
+        humidity_label.config(
+            text=f"💧 Rütubət: {humidity}%"
+        )
+
+        wind_label.config(
+            text=f"💨 Külək: {wind} km/saat"
+        )
+
+        # Vaxt
+        now = datetime.now()
+
+        date_label.config(
+            text=now.strftime("%d.%m.%Y  |  %H:%M")
+        )
+
+    except Exception as error:
+        messagebox.showerror(
+            "Bağlantı xətası",
+            "Hava məlumatını almaq mümkün olmadı.\n\n"
+            "İnternet bağlantınızı yoxlayın.\n\n"
+            f"Xəta: {error}"
+        )
+
+
+# =========================
+# AXTARIŞ
+# =========================
+
+def search_weather():
+    city = city_entry.get().strip()
+
+    if not city:
+        messagebox.showwarning(
+            "Diqqət",
+            "Zəhmət olmasa şəhər adını yazın."
+        )
+        return
+
+    search_button.config(
+        text="Yüklənir...",
+        state="disabled"
+    )
+
+    root.update()
+
+    get_weather(city)
+
+    search_button.config(
+        text="Axtar",
+        state="normal"
+    )
+
+
+# Enter düyməsi ilə də axtar
+def enter_pressed(event):
+    search_weather()
+
+
+# =========================
+# PƏNCƏRƏ
+# =========================
+
+root = tk.Tk()
+
+root.title("Hava Temperaturu")
+root.geometry("480x650")
+root.resizable(False, False)
+
+root.configure(
+    bg="#0f172a"
+)
+
+
+# =========================
+# BAŞLIQ
+# =========================
+
+title_label = tk.Label(
+    root,
+    text="🌤️ HAVA MƏLUMATI",
+    font=("Arial", 24, "bold"),
+    fg="white",
+    bg="#0f172a"
+)
+
+title_label.pack(pady=(30, 20))
+
+
+# =========================
+# AXTARIŞ QUTUSU
+# =========================
+
+city_entry = tk.Entry(
+    root,
+    font=("Arial", 16),
+    justify="center",
+    bg="#1e293b",
+    fg="white",
+    insertbackground="white",
+    relief="flat"
+)
+
+city_entry.pack(
+    padx=40,
+    ipady=12,
+    fill="x"
+)
+
+city_entry.insert(
+    0,
+    "Istanbul"
+)
+
+city_entry.bind(
+    "<Return>",
+    enter_pressed
+)
+
+
+# =========================
+# AXTAR DÜYMƏSİ
+# =========================
+
+search_button = tk.Button(
+    root,
+    text="Axtar",
+    font=("Arial", 15, "bold"),
+    bg="#3b82f6",
+    fg="white",
+    activebackground="#2563eb",
+    activeforeground="white",
+    relief="flat",
+    cursor="hand2",
+    command=search_weather
+)
+
+search_button.pack(
+    pady=15,
+    ipadx=35,
+    ipady=8
+)
+
+
+# =========================
+# ŞƏHƏR
+# =========================
+
+city_label = tk.Label(
+    root,
+    text="Istanbul",
+    font=("Arial", 23, "bold"),
+    fg="white",
+    bg="#0f172a"
+)
+
+city_label.pack(
+    pady=(15, 5)
+)
+
+
+# =========================
+# TARİX
+# =========================
+
+date_label = tk.Label(
+    root,
+    text="",
+    font=("Arial", 11),
+    fg="#94a3b8",
+    bg="#0f172a"
+)
+
+date_label.pack()
+
+
+# =========================
+# HAVA İKONU
+# =========================
+
+icon_label = tk.Label(
+    root,
+    text="🌤️",
+    font=("Arial", 65),
+    bg="#0f172a"
+)
+
+icon_label.pack(
+    pady=(20, 0)
+)
+
+
+# =========================
+# TEMPERATUR
+# =========================
+
+temperature_label = tk.Label(
+    root,
+    text="--°C",
+    font=("Arial", 55, "bold"),
+    fg="#38bdf8",
+    bg="#0f172a"
+)
+
+temperature_label.pack()
+
+
+# =========================
+# HAVA VƏZİYYƏTİ
+# =========================
+
+condition_label = tk.Label(
+    root,
+    text="Hava məlumatı",
+    font=("Arial", 18),
+    fg="white",
+    bg="#0f172a"
+)
+
+condition_label.pack(
+    pady=5
+)
+
+
+# =========================
+# ƏLAVƏ MƏLUMATLAR
+# =========================
+
+info_frame = tk.Frame(
+    root,
+    bg="#1e293b"
+)
+
+info_frame.pack(
+    padx=40,
+    pady=25,
+    fill="x"
+)
+
+
+feels_label = tk.Label(
+    info_frame,
+    text="Hiss olunan: --°C",
+    font=("Arial", 13),
+    fg="white",
+    bg="#1e293b"
+)
+
+feels_label.pack(
+    pady=10
+)
+
+
+humidity_label = tk.Label(
+    info_frame,
+    text="💧 Rütubət: --%",
+    font=("Arial", 13),
+    fg="white",
+    bg="#1e293b"
+)
+
+humidity_label.pack(
+    pady=10
+)
+
+
+wind_label = tk.Label(
+    info_frame,
+    text="💨 Külək: -- km/saat",
+    font=("Arial", 13),
+    fg="white",
+    bg="#1e293b"
+)
+
+wind_label.pack(
+    pady=10
+)
+
+
+# =========================
+# PROQRAMI BAŞLAT
+# =========================
+
+city_entry.focus()
+
+root.mainloop()
